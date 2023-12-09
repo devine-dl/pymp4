@@ -31,16 +31,14 @@ class BoxTests(unittest.TestCase):
             Container(
                 offset=0,
                 type="tenc",
-                data=Container(
-                    version=0,
-                    flags=0,
-                    _reserved=0,
-                    default_byte_blocks=0,
-                    is_encrypted=1,
-                    iv_size=8,
-                    key_ID=UUID('337b9643-21b6-4355-9e59-3eccb46c7ef7'),
-                    constant_iv=None
-                ),
+                version=0,
+                flags=0,
+                _reserved=0,
+                default_byte_blocks=0,
+                is_encrypted=1,
+                iv_size=8,
+                key_ID=UUID('337b9643-21b6-4355-9e59-3eccb46c7ef7'),
+                constant_iv=None,
                 end=32
             )
         )
@@ -49,10 +47,8 @@ class BoxTests(unittest.TestCase):
         self.assertEqual(
             Box.build(dict(
                 type="tenc",
-                data=dict(
-                    key_ID=UUID('337b9643-21b6-4355-9e59-3eccb46c7ef7'),
-                    iv_size=8,
-                    is_encrypted=1
-                )
+                key_ID=UUID('337b9643-21b6-4355-9e59-3eccb46c7ef7'),
+                iv_size=8,
+                is_encrypted=1
             )),
             b'\x00\x00\x00 tenc\x00\x00\x00\x00\x00\x00\x01\x083{\x96C!\xb6CU\x9eY>\xcc\xb4l~\xf7')

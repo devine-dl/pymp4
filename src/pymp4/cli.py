@@ -5,10 +5,10 @@ import logging
 import argparse
 
 from pymp4.parser import Box
-from construct import setglobalfullprinting
+from construct import setGlobalPrintFullStrings
 
 log = logging.getLogger(__name__)
-setglobalfullprinting(True)
+setGlobalPrintFullStrings(True)
 
 
 def dump():

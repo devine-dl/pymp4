@@ -15,9 +15,7 @@ class BoxTests(unittest.TestCase):
             Container(
                 offset=0,
                 type="iden",
-                data=Container(
-                    cue_id="2 - this is the second subtitle"
-                ),
+                cue_id="2 - this is the second subtitle",
                 end=39
             )
         )
@@ -26,9 +24,8 @@ class BoxTests(unittest.TestCase):
         self.assertEqual(
             Box.build(dict(
                 type="iden",
-                data=dict(
-                    cue_id="1 - first subtitle"
-                ))),
+                cue_id="1 - first subtitle",
+                )),
             b'\x00\x00\x00\x1aiden1 - first subtitle')
 
     def test_sttg_parse(self):
@@ -37,9 +34,7 @@ class BoxTests(unittest.TestCase):
             Container(
                 offset=0,
                 type="sttg",
-                data=Container(
-                    settings="line:10% position:50% size:48% align:center"
-                ),
+                settings="line:10% position:50% size:48% align:center",
                 end=51
             )
         )
@@ -48,9 +43,8 @@ class BoxTests(unittest.TestCase):
         self.assertEqual(
             Box.build(dict(
                 type="sttg",
-                data=dict(
-                    settings="line:75% position:20% size:2em align:right"
-                ))),
+                settings="line:75% position:20% size:2em align:right",
+                )),
             b'\x00\x00\x002sttgline:75% position:20% size:2em align:right')
 
     def test_payl_parse(self):
@@ -59,9 +53,7 @@ class BoxTests(unittest.TestCase):
             Container(
                 offset=0,
                 type="payl",
-                data=Container(
-                    cue_text="[chuckling]"
-                ),
+                cue_text="[chuckling]",
                 end=19
             )
         )
@@ -70,9 +62,8 @@ class BoxTests(unittest.TestCase):
         self.assertEqual(
             Box.build(dict(
                 type="payl",
-                data=dict(
-                    cue_text="I have a bad feeling about- [boom]"
-                ))),
+                cue_text="I have a bad feeling about- [boom]",
+                )),
             b'\x00\x00\x00*paylI have a bad feeling about- [boom]')
 
     def test_vttC_parse(self):
@@ -81,9 +72,7 @@ class BoxTests(unittest.TestCase):
             Container(
                 offset=0,
                 type="vttC",
-                data=Container(
-                    config="WEBVTT"
-                ),
+                config="WEBVTT",
                 end=14
             )
         )
@@ -92,9 +81,8 @@ class BoxTests(unittest.TestCase):
         self.assertEqual(
             Box.build(dict(
                 type="vttC",
-                data=dict(
-                    config="WEBVTT with a text header\n\nSTYLE\n::cue {\ncolor: red;\n}"
-                ))),
+                config="WEBVTT with a text header\n\nSTYLE\n::cue {\ncolor: red;\n}",
+                )),
             b'\x00\x00\x00>vttCWEBVTT with a text header\n\nSTYLE\n::cue {\ncolor: red;\n}')
 
     def test_vlab_parse(self):
@@ -103,9 +91,7 @@ class BoxTests(unittest.TestCase):
             Container(
                 offset=0,
                 type="vlab",
-                data=Container(
-                    label="source_label"
-                ),
+                label="source_label",
                 end=20
             )
         )
@@ -114,7 +100,6 @@ class BoxTests(unittest.TestCase):
         self.assertEqual(
             Box.build(dict(
                 type="vlab",
-                data=dict(
-                    label="1234 \n test_label \n\n"
-                ))),
+                label="1234 \n test_label \n\n",
+                )),
             b'\x00\x00\x00\x1cvlab1234 \n test_label \n\n')

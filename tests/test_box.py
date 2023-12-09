@@ -30,11 +30,9 @@ class BoxTests(unittest.TestCase):
             Container(
                 offset=0,
                 type="ftyp",
-                data=Container(
-                    major_brand="iso5",
-                    minor_version=1,
-                    compatible_brands=["iso5", "avc1"]
-                ),
+                major_brand="iso5",
+                minor_version=1,
+                compatible_brands=["iso5", "avc1"],
                 end=24
             )
         )
@@ -43,11 +41,9 @@ class BoxTests(unittest.TestCase):
         self.assertEqual(
             Box.build(dict(
                 type="ftyp",
-                data=dict(
-                    major_brand="iso5",
-                    minor_version=1,
-                    compatible_brands=["iso5", "avc1"]
-                )
+                major_brand="iso5",
+                minor_version=1,
+                compatible_brands=["iso5", "avc1"]
             )),
             b'\x00\x00\x00\x18ftypiso5\x00\x00\x00\x01iso5avc1')
 
@@ -57,15 +53,13 @@ class BoxTests(unittest.TestCase):
             Container(
                 offset=0,
                 type="mdhd",
-                data=Container(
-                    version=0,
-                    flags=0,
-                    creation_time=0,
-                    modification_time=0,
-                    timescale=1000000,
-                    duration=0,
-                    language="und"
-                ),
+                version=0,
+                flags=0,
+                creation_time=0,
+                modification_time=0,
+                timescale=1000000,
+                duration=0,
+                language="und",
                 end=32
             )
         )
@@ -73,40 +67,38 @@ class BoxTests(unittest.TestCase):
     def test_mdhd_build(self):
         mdhd_data = Box.build(dict(
             type="mdhd",
-            data=dict(
-                creation_time=0,
-                modification_time=0,
-                timescale=1000000,
-                duration=0,
-                language="und"
-            )))
+            creation_time=0,
+            modification_time=0,
+            timescale=1000000,
+            duration=0,
+            language="und"
+            ))
         self.assertEqual(len(mdhd_data), 32)
         self.assertEqual(mdhd_data,
                          b'\x00\x00\x00\x20mdhd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0fB@\x00\x00\x00\x00U\xc4\x00\x00')
 
         mdhd_data64 = Box.build(dict(
             type="mdhd",
-            data=dict(
-                version=1,
-                creation_time=0,
-                modification_time=0,
-                timescale=1000000,
-                duration=0,
-                language="und"
-            )))
+            version=1,
+            creation_time=0,
+            modification_time=0,
+            timescale=1000000,
+            duration=0,
+            language="und"
+            ))
         self.assertEqual(len(mdhd_data64), 44)
         self.assertEqual(mdhd_data64,
                          b'\x00\x00\x00,mdhd\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0fB@\x00\x00\x00\x00\x00\x00\x00\x00U\xc4\x00\x00')
 
     def test_moov_build(self):
         moov = \
-            Container(type="moov", data=Container(children=ListContainer([  # 96 bytes
-                Container(type="mvex", data=Container(children=ListContainer([  # 88 bytes
-                    Container(type="mehd", data=Container(version=0, flags=0, fragment_duration=0)),  # 16 bytes
-                    Container(type="trex", data=Container(track_ID=1)),  # 32 bytes
-                    Container(type="trex", data=Container(track_ID=2)),  # 32 bytes
-                ])))
-            ])))
+            Container(type="moov", children=ListContainer([  # 96 bytes
+                Container(type="mvex", children=ListContainer([  # 88 bytes
+                    Container(type="mehd", version=0, flags=0, fragment_duration=0),  # 16 bytes
+                    Container(type="trex", track_ID=1),  # 32 bytes
+                    Container(type="trex", track_ID=2),  # 32 bytes
+                ]))
+            ]))
 
         moov_data = Box.build(moov)
 
@@ -127,12 +119,10 @@ class BoxTests(unittest.TestCase):
             Container(
                 offset=0,
                 type="smhd",
-                data=Container(
-                    version=0,
-                    flags=0,
-                    balance=0,
-                    reserved=0
-                ),
+                version=0,
+                flags=0,
+                balance=0,
+                reserved=0,
                 end=len(in_bytes)
             )
         )
@@ -154,17 +144,15 @@ class BoxTests(unittest.TestCase):
             Container(
                 offset=0,
                 type="stsd",
-                data=Container(
-                    version=0,
-                    flags=0,
-                    entries=ListContainer([
-                        Container(
-                            format="tx3g",
-                            data_reference_index=1,
-                            data=tx3g_data
-                        )
-                    ])
-                ),
+                version=0,
+                flags=0,
+                entries=ListContainer([
+                    Container(
+                        format="tx3g",
+                        data_reference_index=1,
+                        data=tx3g_data
+                    )
+                ]),
                 end=len(in_bytes)
             )
         )

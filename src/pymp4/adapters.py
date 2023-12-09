@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC
 from uuid import UUID
 
-from construct import Adapter, int2byte
+from construct import Adapter, int2byte, GreedyBytes
 
 
 class ISO6392TLanguageCode(Adapter, ABC):
@@ -36,3 +36,20 @@ class UUIDBytes(Adapter, ABC):
 
     def _encode(self, obj, context, path):
         return obj.bytes
+
+
+class VarBytesInteger(Adapter, ABC):
+    def __init__(self, subcon=GreedyBytes, signed=True, swapped=False):
+        super().__init__(subcon)
+        self.signed = signed
+        self.byteorder = 'little' if swapped else 'big'
+
+    def _encode(self, obj, context, path):
+        if self.signed:
+            l = (8 + (obj + (obj < 0)).bit_length()) // 8
+        else:
+            l = (obj.bit_length() + 7) // 8
+        return obj.to_bytes(length=l, byteorder=self.byteorder, signed=self.signed)
+
+    def _decode(self, obj, context, path):
+        return int.from_bytes(obj, byteorder=self.byteorder, signed=self.signed)

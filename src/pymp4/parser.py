@@ -20,8 +20,8 @@ from uuid import UUID
 from construct import *
 from construct.lib import *
 
-from pymp4.adapters import ISO6392TLanguageCode, MaskedInteger, UUIDBytes
-from pymp4.subconstructs import TellPlusSizeOf
+from pymp4.adapters import ISO6392TLanguageCode, MaskedInteger, UUIDBytes, VarBytesInteger
+from pymp4.subconstructs import EmbeddableStruct, Embedded, TellMinusSizeOf
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ SegmentTypeBox = Struct(
 # Catch find boxes
 
 RawBox = Struct(
-    "type" / PaddedString(4, "ascii"),
+#    "type" / PaddedString(4, "ascii"),
     "data" / Default(GreedyBytes, b"")
 )
 
@@ -116,8 +116,8 @@ HDSSegmentBox = Struct(
     "quality_entry_table" / PrefixedArray(Int8ub, CString("ascii")),
     "drm_data" / CString("ascii"),
     "metadata" / CString("ascii"),
-    "segment_run_table" / PrefixedArray(Int8ub, LazyBound(lambda x: Box)),
-    "fragment_run_table" / PrefixedArray(Int8ub, LazyBound(lambda x: Box))
+    "segment_run_table" / PrefixedArray(Int8ub, LazyBound(lambda: Box)),
+    "fragment_run_table" / PrefixedArray(Int8ub, LazyBound(lambda: Box))
 )
 
 HDSSegmentRunBox = Struct(
@@ -165,8 +165,9 @@ HandlerReferenceBox = Struct(
     "flags" / Const(0, Int24ub),
     Padding(4, pattern=b"\x00"),
     "handler_type" / PaddedString(4, "ascii"),
-    Padding(12, pattern=b"\x00"),  # Int32ub[3]
-    "name" / CString("utf8")
+    "manufacturer" / Default(PaddedString(4, "ascii"), ''),  # used by apple meta
+    Padding(8, pattern=b"\x00"),  # Int32ub[2]
+    "name" / Optional(CString("utf8"))  # shaka-packer does not add null for empty string
 )
 
 # Boxes contained by Media Info Box
@@ -183,6 +184,7 @@ VideoMediaHeaderBox = Struct(
 )
 
 DataEntryUrlBox = Prefixed(Int32ub, Struct(
+    "type" / Const('url ', PaddedString(4, "ascii")),
     "version" / Const(0, Int8ub),
     "flags" / BitStruct(
         Padding(23), "self_contained" / Rebuild(Flag, ~this._.location)
@@ -191,6 +193,7 @@ DataEntryUrlBox = Prefixed(Int32ub, Struct(
 ), includelength=True)
 
 DataEntryUrnBox = Prefixed(Int32ub, Struct(
+    "type" / Const('urn ', PaddedString(4, "ascii")),
     "version" / Const(0, Int8ub),
     "flags" / BitStruct(
         Padding(23), "self_contained" / Rebuild(Flag, ~(this._.name & this._.location))
@@ -216,7 +219,8 @@ MP4ASampleEntryBox = Struct(
     "compression_id" / Default(Int16sb, 0),
     "packet_size" / Const(0, Int16ub),
     "sampling_rate" / Int16ub,
-    Padding(2)
+    Padding(2),
+    "children" / LazyBound(lambda: GreedyRange(Box))
 )
 
 AAVC = Struct(
@@ -228,8 +232,8 @@ AAVC = Struct(
         Padding(6, pattern=b'\x01'),
         "nal_unit_length_field" / Default(BitsInteger(2), 3),
     ),
-    "sps" / Default(PrefixedArray(MaskedInteger(Int8ub), PascalString(Int16ub, "ascii")), []),
-    "pps" / Default(PrefixedArray(Int8ub, PascalString(Int16ub, "ascii")), [])
+    "sps" / Default(PrefixedArray(MaskedInteger(Int8ub), Hex(Prefixed(Int16ub, GreedyBytes))), []),
+    "pps" / Default(PrefixedArray(Int8ub, Hex(Prefixed(Int16ub, GreedyBytes))), [])
 )
 
 HVCC = Struct(
@@ -285,21 +289,21 @@ AVC1SampleEntryBox = Struct(
             "hvcC": HVCC,
         }, GreedyBytes)
     ), includelength=True),
-    "sample_info" / LazyBound(lambda _: GreedyRange(Box))
+    "sample_info" / LazyBound(lambda: GreedyRange(Box))
 )
 
-SampleEntryBox = Prefixed(Int32ub, Struct(
+SampleEntryBox = Prefixed(Int32ub, EmbeddableStruct(
     "format" / PaddedString(4, "ascii"),
     Padding(6, pattern=b"\x00"),
     "data_reference_index" / Default(Int16ub, 1),
-    "data" / Switch(this.format, {
+    Embedded(Switch(this.format, {
         "ec-3": MP4ASampleEntryBox,
         "mp4a": MP4ASampleEntryBox,
         "enca": MP4ASampleEntryBox,
         "avc1": AVC1SampleEntryBox,
         "encv": AVC1SampleEntryBox,
         "wvtt": Struct("children" / LazyBound(lambda: GreedyRange(Box)))
-    }, GreedyBytes)
+    }, RawBox)),
 ), includelength=True)
 
 BitRateBox = Struct(
@@ -329,7 +333,7 @@ SampleSizeBox2 = Struct(
     "field_size" / Int8ub,
     "sample_count" / Int24ub,
     "entries" / Array(this.sample_count, Struct(
-        "entry_size" / LazyBound(lambda ctx: globals()["Int%dub" % ctx.field_size])
+        "entry_size" / LazyBound(lambda: globals()["Int%dub" % this._.field_size])
     ))
 )
 
@@ -518,7 +522,7 @@ SampleAuxiliaryInformationOffsetsBox = Struct(
     "aux_info_type" / Default(If(this.flags.has_aux_info_type, Int32ub), None),
     "aux_info_type_parameter" / Default(If(this.flags.has_aux_info_type, Int32ub), None),
     # Short offsets in version 0, long in version 1
-    "offsets" / PrefixedArray(Int32ub, Switch(this.version, {0: Int32ub, 1: Int64ub}))
+    "offsets" / PrefixedArray(Int32ub, Switch(this._.version, {0: Int32ub, 1: Int64ub}))
 )
 
 # Movie data box
@@ -582,7 +586,7 @@ SampleEncryptionBox = Struct(
     "sample_encryption_info" / PrefixedArray(Int32ub, Struct(
         "iv" / Bytes(8),
         # include the sub sample encryption information
-        "subsample_encryption_info" / Default(If(this.flags.has_subsample_encryption_info, PrefixedArray(Int16ub, Struct(
+        "subsample_encryption_info" / Default(If(this._._.flags.has_subsample_encryption_info, PrefixedArray(Int16ub, Struct(
             "clear_bytes" / Int16ub,
             "cipher_bytes" / Int32ub
         ))), None)
@@ -603,7 +607,7 @@ SchemeTypeBox = Struct(
 
 ProtectionSchemeInformationBox = Struct(
     # TODO: define which children are required 'schm', 'schi' and 'tenc'
-    "children" / LazyBound(lambda _: GreedyRange(Box))
+    "children" / LazyBound(lambda: GreedyRange(Box))
 )
 
 # PIFF boxes
@@ -641,11 +645,102 @@ WebVTTSourceLabelBox = Struct(
 
 ContainerBoxLazy = LazyBound(lambda: ContainerBox)
 
+ContainerFullBoxLazy = LazyBound(lambda: ContainerFullBox)
 
-Box = Prefixed(Int32ub, Struct(
-    "offset" / Tell,
+# metadata
+
+MetadataDataBox = Struct(
+    # """https://developer.apple.com/documentation/quicktime-file-format/type_indicator"""
+    # changing this name you have to also change the If in 'data'
+    "version" / Default(Int8ub, 0),
+    # chaning this name you have to also change the Switch in 'data'
+    "flags" / Default(Int24ub, 1),
+    "locale" / Default(Int32ub, 0),
+    "data" / IfThenElse(this.version == 0,
+        # """https://developer.apple.com/documentation/quicktime-file-format/well-known_types"""
+        Switch(this.flags, {
+            # """without any count or null terminator"""
+            1: GreedyString("utf8"),
+            # """also known as UTF-16BE"""
+            2: GreedyString("utf16"),
+            # """A big-endian signed integer in 1,2,3 or 4 bytes.
+            #    Note: This data type is not supported in Timed metadata media.
+            #    Use one of the fixed-size signed integer data types (that is, type codes 65, 66, or 67) instead."""
+            21: VarBytesInteger(signed=True),
+            # """A big-endian unsigned integer in 1,2,3 or 4 bytes; size of value determines integer size.
+            #    Note: This data type is not supported in Timed metadata media.
+            #    Use one of the fixed-size unsigned integer data types (that is, type codes 75, 76, or 77) instead."""
+            22: VarBytesInteger(signed=False),
+            # """A big-endian 32-bit floating point value (IEEE754)"""
+            23: Float32b,
+            # """A big-endian 64-bit floating point value (IEEE754)"""
+            24: Float64b,
+            # """An 8-bit signed integer"""
+            65: Int8sb,
+            # """A big-endian 16-bit signed integer"""
+            66: Int16sb,
+            # """A big-endian 32-bit signed integer"""
+            67: Int32sb,
+            # """A big-endian 64-bit signed integer"""
+            74: Int64sb,
+            # """An 8-bit unsigned integer"""
+            75: Int8ub,
+            # """A big-endian 16-bit unsigned integer"""
+            76: Int16ub,
+            # """A big-endian 32-bit unsigned integer"""
+            77: Int32ub,
+            # """A big-endian 64-bit unsigned integer"""
+            78: Int64ub,
+        }, default=Default(GreedyBytes, b"")),
+        Default(GreedyBytes, b"")
+    )
+)
+
+MetadataNameBox = Struct(
+    "version" / Default(Int8ub, 0),
+    "flags" / Default(Int24ub, 1),
+    "name" / GreedyString('utf8')
+)
+
+MetadataID32 = Struct(
+    "version" / Default(Int8ub, 0),
+    "flags" / Default(Int24ub, 0),
+    "language" / Default(ISO6392TLanguageCode(Int16ub), 'eng'),
+    "data" / Default(GreedyBytes, b"")
+)
+
+MetadataListItem = Struct(
+    "children" / GreedyRange(LazyBound(lambda: MetadataListItemBox))
+)
+
+MetadataListItemBox = Prefixed(Int32ub, EmbeddableStruct(
+    # this does not support the 64-bit length box
+    # to support them you will have to extend the
+    # Prefixed class and handle offset/length/type
+    # since box is like Int32ub(1) Type Int64ub(length)
+    "offset" / TellMinusSizeOf(Int32ub),
+    # have to use bytes here since type can have non-ascii bytes
+    "type" / Bytes(4),
+    Embedded(Switch(this.type, {
+        b"name": MetadataNameBox,
+        b"data": MetadataDataBox,
+        b"itif": RawBox,
+    }, default=MetadataListItem)),
+    "end" / Tell #TellPlusSizeOf(Int32ub)
+), includelength=True)
+
+MetadataList = Struct(
+    "children" / GreedyRange(MetadataListItemBox)
+)
+
+Box = Prefixed(Int32ub, EmbeddableStruct(
+    # this does not support the 64-bit length box
+    # to support them you will have to extend the
+    # Prefixed class and handle offset/length/type
+    # since box is like Int32ub(1) Type Int64ub(length)
+    "offset" / TellMinusSizeOf(Int32ub),
     "type" / PaddedString(4, "ascii"),
-    "data" / Switch(this.type, {
+    Embedded(Switch(this.type, {
         "ftyp": FileTypeBox,
         "styp": SegmentTypeBox,
         "mvhd": MovieHeaderBox,
@@ -706,12 +801,23 @@ Box = Prefixed(Int32ub, Struct(
         "vttx": ContainerBoxLazy,
         "iden": CueIDBox,
         "sttg": CueSettingsBox,
-        "payl": CuePayloadBox
-    }, default=RawBox),
-    "end" / TellPlusSizeOf(Int32ub)
+        "payl": CuePayloadBox,
+        # metadata
+        "ilst": MetadataList,
+        "ID32": MetadataID32,
+        "udta": ContainerBoxLazy,
+        "meta": ContainerFullBoxLazy,
+    }, default=RawBox)),
+    "end" / Tell
 ), includelength=True)
 
 ContainerBox = Struct(
+    "children" / GreedyRange(Box)
+)
+
+ContainerFullBox = Struct(
+    "version" / Default(Int8ub, 0),
+    "flags" / Default(Int24ub, 0),
     "children" / GreedyRange(Box)
 )
 
